@@ -291,11 +291,21 @@ do
       if not healthcheck then
         healthcheck = require("resty.healthcheck") -- delayed initialization
       end
+
+      -- Do not run active healthchecks in `stream` module
+      local checks = upstream.healthchecks
+      if ngx.config.subsystem == "stream" then
+        checks = pl_tablex.deepcopy(checks)
+        checks.active.healthy.interval = 0
+        checks.active.unhealthy.interval = 0
+      end
+
       local healthchecker, err = healthcheck.new({
         name = upstream.name,
         shm_name = "kong_healthchecks",
-        checks = upstream.healthchecks,
+        checks = checks,
       })
+
       if not healthchecker then
         log(ERR, "[healthchecks] error creating health checker: ", err)
         return nil, err
